@@ -29,37 +29,31 @@ def generate_seo_content(category):
     }}
     """
     
-    # ফ্রি API এর জন্য পরীক্ষিত ও রিলায়েবল মডেলসমূহ
-    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
+    # বর্তমান ফ্রি টায়ারে চালু থাকা মডেল
+    model_name = 'gemini-2.0-flash'
     
+    # প্রতিটি API Key লুপ করে চেক করা
     random.shuffle(GEMINI_KEYS)
-    for api_key in GEMINI_KEYS:
+    for index, api_key in enumerate(GEMINI_KEYS):
         try:
+            print(f"Trying API Key #{index + 1} with model {model_name}...")
             client = genai.Client(api_key=api_key)
-            for model_name in models_to_try:
-                try:
-                    print(f"Trying model {model_name}...")
-                    response = client.models.generate_content(
-                        model=model_name,
-                        contents=prompt,
-                    )
-                    text = response.text.replace('```json', '').replace('```', '').strip()
-                    return json.loads(text)
-                except Exception as model_err:
-                    print(f"Model {model_name} failed: {model_err}")
-                    time.sleep(1)
-                    continue
-        except Exception as key_err:
-            print(f"API Key error: {key_err}")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            text = response.text.replace('```json', '').replace('```', '').strip()
+            return json.loads(text)
+        except Exception as e:
+            print(f"API Key #{index + 1} failed due to quota or error: {e}")
+            time.sleep(2)
             continue
             
-    print("All Gemini API keys and models failed.")
+    print("All Gemini API keys exhausted quota or failed.")
     exit(1)
 
 def publish_to_blogger(title, content, tags):
     token_data = json.loads(TOKEN_JSON)
-    
-    # ইউআরএল থেকে ভুল ব্র্যাকেট বা স্পেস পরিষ্কার করার লজিক
     token_uri = token_data.get('token_uri', '[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)')
     token_uri = token_uri.replace('[', '').replace(']', '').strip()
     
@@ -107,14 +101,11 @@ def notify_google_indexing(url):
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
     
-    # 1. Gemini থেকে কন্টেন্ট তৈরি
     article_data = generate_seo_content(CATEGORY)
     
-    # 2. Pollinations AI থেকে ছবি তৈরি
     safe_keyword = article_data['keyword'].replace(' ', '%20')
     image_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_keyword}?width=800&height=400&nologo=true"
     
-    # 3. ছবি এবং টেক্সট যুক্ত করা
     final_html_content = f"""
     <div style="text-align: center;">
         <img src="{image_url}" alt="{article_data['keyword']}" style="max-width:100%; height:auto; border-radius:8px;"/>
@@ -123,9 +114,8 @@ if __name__ == "__main__":
     {article_data['content']}
     """
     
-    # 4. ব্লগারে পাবলিশ করা
     published_url = publish_to_blogger(article_data['title'], final_html_content, article_data['tags'])
     
-    # 5. গুগলে ইন্ডেক্সিং এর জন্য পাঠানো
     if published_url:
         notify_google_indexing(published_url)
+        
