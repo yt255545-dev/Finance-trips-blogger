@@ -17,7 +17,7 @@ CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
 def generate_seo_content(category):
     prompt = f"""
-    Act as an expert SEO blog writer. Write a highly engaging, fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
+    Act as an expert SEO blog writer. Write ONE engaging, fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
     Include a catchy Title, Meta Description, and Focus Keyword.
     Use HTML formatting for the content (use <h2>, <h3>, <p>, <ul>, etc.). Do not include ```html or markdown blocks, just raw HTML.
     Return the result EXACTLY in this JSON format without any extra text:
@@ -29,14 +29,14 @@ def generate_seo_content(category):
     }}
     """
     
-    # বর্তমান ফ্রি টায়ারে চালু থাকা মডেল
+    # বর্তমান রিলায়েবল মডেল
     model_name = 'gemini-2.0-flash'
     
-    # প্রতিটি API Key লুপ করে চেক করা
+    # API Key একটি একটি করে ট্রাই করার লজিক যাতে কোটা শেষ না হয়
     random.shuffle(GEMINI_KEYS)
     for index, api_key in enumerate(GEMINI_KEYS):
         try:
-            print(f"Trying API Key #{index + 1} with model {model_name}...")
+            print(f"Trying API Key #{index + 1} for category: {category}...")
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
                 model=model_name,
@@ -45,11 +45,11 @@ def generate_seo_content(category):
             text = response.text.replace('```json', '').replace('```', '').strip()
             return json.loads(text)
         except Exception as e:
-            print(f"API Key #{index + 1} failed due to quota or error: {e}")
-            time.sleep(2)
+            print(f"API Key #{index + 1} failed: {e}")
+            time.sleep(3)
             continue
             
-    print("All Gemini API keys exhausted quota or failed.")
+    print("All Gemini API keys failed or quota exceeded.")
     exit(1)
 
 def publish_to_blogger(title, content, tags):
@@ -77,7 +77,7 @@ def publish_to_blogger(title, content, tags):
     request = service.posts().insert(blogId=BLOG_ID, body=body, isDraft=False)
     response = request.execute()
     post_url = response.get('url')
-    print(f"Successfully posted to Blogger! URL: {post_url}")
+    print(f"Successfully posted 1 article! URL: {post_url}")
     return post_url
 
 def notify_google_indexing(url):
@@ -101,11 +101,14 @@ def notify_google_indexing(url):
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
     
+    # ১. নির্দিষ্ট ক্যাটাগরি থেকে মাত্র ১টি পোস্ট জেনারেট করা
     article_data = generate_seo_content(CATEGORY)
     
+    # ২. Pollinations AI থেকে ছবি তৈরি
     safe_keyword = article_data['keyword'].replace(' ', '%20')
     image_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_keyword}?width=800&height=400&nologo=true"
     
+    # ৩. ছবি এবং কনটেন্ট একসাথে যুক্ত করা
     final_html_content = f"""
     <div style="text-align: center;">
         <img src="{image_url}" alt="{article_data['keyword']}" style="max-width:100%; height:auto; border-radius:8px;"/>
@@ -114,8 +117,10 @@ if __name__ == "__main__":
     {article_data['content']}
     """
     
+    # ৪. ব্লগারে পাবলিশ করা
     published_url = publish_to_blogger(article_data['title'], final_html_content, article_data['tags'])
     
+    # ৫. গুগলে ইন্ডেক্সিং এর জন্য পাঠানো
     if published_url:
         notify_google_indexing(published_url)
-        
+    
