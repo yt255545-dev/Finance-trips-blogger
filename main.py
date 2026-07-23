@@ -13,10 +13,17 @@ GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS", "").split(",") i
 INDEXING_JSON = os.environ.get("INDEXING_JSON")
 CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
-# নতুন সিক্রেট থেকে সরাসরি টোকেন ও ক্রেডেনশিয়াল নেওয়া
-REFRESH_TOKEN = os.environ.get("BLOGGER_REFRESH_TOKEN", "").strip().replace('[', '').replace(']', '').replace("'", "").replace('"', "")
-CLIENT_ID = os.environ.get("BLOGGER_CLIENT_ID", "").strip().replace('[', '').replace(']', '').replace("'", "").replace('"', "")
-CLIENT_SECRET = os.environ.get("BLOGGER_CLIENT_SECRET", "").strip().replace('[', '').replace(']', '').replace("'", "").replace('"', "")
+def sanitize_secret(val):
+    if not val:
+        return ""
+    val = val.strip()
+    if '(' in val and ')' in val:
+        val = val.split('(')[-1].split(')')[0]
+    return val.replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
+
+REFRESH_TOKEN = sanitize_secret(os.environ.get("BLOGGER_REFRESH_TOKEN"))
+CLIENT_ID = sanitize_secret(os.environ.get("BLOGGER_CLIENT_ID"))
+CLIENT_SECRET = sanitize_secret(os.environ.get("BLOGGER_CLIENT_SECRET"))
 
 def clean_and_parse_json(text):
     try:
@@ -44,6 +51,7 @@ def generate_seo_content(category):
     }}
     """
     
+    # ১. প্রথমে ওপেন রাউটার দিয়ে জেনারেট করার চেষ্টা করবে
     if OPENROUTER_API_KEY:
         try:
             print(f"Trying to generate blog via OpenRouter (Primary)...")
@@ -65,9 +73,12 @@ def generate_seo_content(category):
                 content_text = response_data["choices"][0]["message"]["content"]
                 print("Successfully generated content via OpenRouter!")
                 return clean_and_parse_json(content_text)
+            else:
+                print(f"OpenRouter Response Error: {response_data}")
         except Exception as e:
             print(f"OpenRouter failed: {e}. Switching to Gemini backup...")
 
+    # ২. ওপেন রাউটার ফেল করলে জেমিনি ব্যাকআপ ব্যবহার করবে
     if GEMINI_KEYS:
         try:
             print("Switching to Gemini API for blog generation (Backup)...")
@@ -82,12 +93,23 @@ def generate_seo_content(category):
         except Exception as e:
             print(f"Gemini generation failed: {e}. Using Safe Fallback Article...")
 
+    # ৩. সব এপিআই কোটা শেষ হলে ফলব্যাক বা ডিফল্ট আর্টিকেল ব্যবহার করবে যাতে প্রজেক্ট ফেইল না করে
     print("All AI methods failed. Generating Fallback Content...")
     return {
         "title": f"Complete Guide to Smart {CATEGORY} Management in 2026",
         "keyword": category.lower(),
         "tags": [category, "Trending", "Guide"],
-        "content": f"<h2>Introduction to {category}</h2><p>Managing your {category.lower()} effectively is essential for long-term success.</p>"
+        "content": f"""
+        <h2>Introduction to {category}</h2>
+        <p>Managing your {category.lower()} effectively is essential for long-term financial success and stability in today's digital era.</p>
+        <h3>Key Steps for Success</h3>
+        <ul>
+            <li>Define your core objectives clearly.</li>
+            <li>Track your performance and expenses consistently.</li>
+            <li>Adopt modern tools and smart strategies.</li>
+        </ul>
+        <p>By following these fundamental practices, you can achieve remarkable progress and long-lasting results.</p>
+        """
     }
 
 def generate_images(keyword):
