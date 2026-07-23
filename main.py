@@ -10,16 +10,16 @@ from googleapiclient.discovery import build
 
 # GitHub Secrets থেকে ডেটা সংগ্রহ
 BLOG_ID = os.environ.get("BLOG_ID")
-GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS").split(",") if k.strip()]
+GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS", "").split(",") if k.strip()]
 TOKEN_JSON = os.environ.get("BLOGGER_TOKEN_JSON") 
 INDEXING_JSON = os.environ.get("INDEXING_JSON")
 CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
 def generate_seo_content(category):
     prompt = f"""
-    Act as an expert SEO blog writer. Write ONE engaging, fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
+    Act as an expert SEO blog writer. Write a detailed, long, and fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
     Include a catchy Title, Meta Description, and Focus Keyword.
-    Use HTML formatting for the content (use <h2>, <h3>, <p>, <ul>, etc.). Do not include ```html or markdown blocks, just raw HTML.
+    Use rich HTML formatting for the content (use multiple <h2>, <h3>, <p>, <ul>, <li>, etc.) to make it a comprehensive long-form article. Do not include ```html or markdown blocks, just raw HTML.
     Return the result EXACTLY in this JSON format without any extra text:
     {{
         "title": "Post Title",
@@ -29,10 +29,12 @@ def generate_seo_content(category):
     }}
     """
     
-    # বর্তমান রিলায়েবল মডেল
     model_name = 'gemini-2.0-flash'
     
-    # API Key একটি একটি করে ট্রাই করার লজিক যাতে কোটা শেষ না হয়
+    if not GEMINI_KEYS:
+        print("Error: No Gemini API keys found in GitHub Secrets.")
+        exit(1)
+
     random.shuffle(GEMINI_KEYS)
     for index, api_key in enumerate(GEMINI_KEYS):
         try:
@@ -101,14 +103,11 @@ def notify_google_indexing(url):
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
     
-    # ১. নির্দিষ্ট ক্যাটাগরি থেকে মাত্র ১টি পোস্ট জেনারেট করা
     article_data = generate_seo_content(CATEGORY)
     
-    # ২. Pollinations AI থেকে ছবি তৈরি
     safe_keyword = article_data['keyword'].replace(' ', '%20')
     image_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_keyword}?width=800&height=400&nologo=true"
     
-    # ৩. ছবি এবং কনটেন্ট একসাথে যুক্ত করা
     final_html_content = f"""
     <div style="text-align: center;">
         <img src="{image_url}" alt="{article_data['keyword']}" style="max-width:100%; height:auto; border-radius:8px;"/>
@@ -117,10 +116,8 @@ if __name__ == "__main__":
     {article_data['content']}
     """
     
-    # ৪. ব্লগারে পাবলিশ করা
     published_url = publish_to_blogger(article_data['title'], final_html_content, article_data['tags'])
     
-    # ৫. গুগলে ইন্ডেক্সিং এর জন্য পাঠানো
     if published_url:
         notify_google_indexing(published_url)
-    
+        
