@@ -29,26 +29,31 @@ def generate_seo_content(category):
     }}
     """
     
-    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash']
+    # ফ্রি API এর জন্য পরীক্ষিত ও রিলায়েবল মডেলসমূহ
+    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash']
     
     random.shuffle(GEMINI_KEYS)
     for api_key in GEMINI_KEYS:
-        client = genai.Client(api_key=api_key)
-        for model_name in models_to_try:
-            try:
-                print(f"Trying model {model_name} with an API key...")
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                )
-                text = response.text.replace('```json', '').replace('```', '').strip()
-                return json.loads(text)
-            except Exception as e:
-                print(f"Model {model_name} failed with error: {e}")
-                time.sleep(2)
-                continue
+        try:
+            client = genai.Client(api_key=api_key)
+            for model_name in models_to_try:
+                try:
+                    print(f"Trying model {model_name}...")
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                    )
+                    text = response.text.replace('```json', '').replace('```', '').strip()
+                    return json.loads(text)
+                except Exception as model_err:
+                    print(f"Model {model_name} failed: {model_err}")
+                    time.sleep(1)
+                    continue
+        except Exception as key_err:
+            print(f"API Key error: {key_err}")
+            continue
             
-    print("All Gemini API keys and models failed or quota/server busy.")
+    print("All Gemini API keys and models failed.")
     exit(1)
 
 def publish_to_blogger(title, content, tags):
@@ -124,4 +129,3 @@ if __name__ == "__main__":
     # 5. গুগলে ইন্ডেক্সিং এর জন্য পাঠানো
     if published_url:
         notify_google_indexing(published_url)
-        
