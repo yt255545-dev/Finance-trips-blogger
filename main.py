@@ -8,7 +8,6 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from google import genai
 
-# GitHub Secrets থেকে ডেটা সংগ্রহ
 BLOG_ID = os.environ.get("BLOG_ID")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS", "").split(",") if k.strip()]
@@ -42,7 +41,6 @@ def generate_seo_content(category):
     }}
     """
     
-    # পদ্ধতি ১: OpenRouter দিয়ে চেষ্টা করা
     if OPENROUTER_API_KEY:
         try:
             print(f"Trying to generate blog via OpenRouter (Primary)...")
@@ -76,7 +74,6 @@ def generate_seo_content(category):
         except Exception as e:
             print(f"OpenRouter failed: {e}. Switching to Gemini backup...")
 
-    # পদ্ধতি ২: Gemini ব্যাকআপ
     if GEMINI_KEYS:
         try:
             print("Switching to Gemini API for blog generation (Backup)...")
@@ -108,13 +105,20 @@ def publish_to_blogger(title, content, tags):
         print(f"Error parsing BLOGGER_TOKEN_JSON: {e}")
         exit(1)
     
-    # এখানে টোকেন ইউআরআই সরাসরি ফিক্সড স্ট্রিং দিয়ে দেওয়া হলো, যাতে কোনো মডিফিকেশন বা ব্র্যাকেট না আসে
+    # GitHub Secrets-এ টোকেন জেসন এর ভেতরে কোনো ফিল্ডে ব্র্যাকেট বা স্কয়ার ব্র্যাকেট থাকলে তা চিরতরে পরিষ্কার করার লজিক
+    clean_token_data = {}
+    for k, v in token_data.items():
+        if isinstance(v, str):
+            clean_token_data[k] = v.replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
+        else:
+            clean_token_data[k] = v
+
     creds = google.oauth2.credentials.Credentials(
-        token=token_data.get('token'),
-        refresh_token=token_data.get('refresh_token'),
+        token=clean_token_data.get('token'),
+        refresh_token=clean_token_data.get('refresh_token'),
         token_uri="[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)",
-        client_id=token_data.get('client_id'),
-        client_secret=token_data.get('client_secret')
+        client_id=clean_token_data.get('client_id'),
+        client_secret=clean_token_data.get('client_secret')
     )
     
     service = build('blogger', 'v3', credentials=creds)
@@ -173,6 +177,4 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
-        
     
-
