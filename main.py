@@ -8,14 +8,16 @@ import google.oauth2.credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-# GitHub Secrets থেকে ডেটা সংগ্রহ
+# GitHub Secrets থেকে প্রয়োজনীয় তথ্য সংগ্রহ
 BLOG_ID = os.environ.get("BLOG_ID")
-GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS", "").split(",") if k.strip()]
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY") # OpenRouter API Key
+GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS", "").split(",") if k.strip()] # Gemini API Key
 TOKEN_JSON = os.environ.get("BLOGGER_TOKEN_JSON") 
 INDEXING_JSON = os.environ.get("INDEXING_JSON")
 CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
-def generate_seo_content(category):
+def generate_seo_content_via_openrouter(category):
+    # OpenRouter (GPT-5.6 Sol) দিয়ে এসইও আর্টিকেল লিখানোর প্রম্পট
     prompt = f"""
     Act as an expert SEO blog writer. Write a detailed, long, and fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
     Include a catchy Title, Meta Description, and Focus Keyword.
@@ -29,31 +31,66 @@ def generate_seo_content(category):
     }}
     """
     
-    # ফ্রি টায়ার কোটা সমস্যা এড়ানোর জন্য стабильный মডেল ব্যবহার করা হলো
-    model_name = 'gemini-1.5-flash'
+    url = "[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)"
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "[https://github.com](https://github.com)",
+        "X-Title": "Blogger Auto Poster"
+    }
     
-    if not GEMINI_KEYS:
-        print("Error: No Gemini API keys found in GitHub Secrets.")
+    # শক্তিশালী GPT-5.6 Sol মডেল ব্যবহার করা হচ্ছে
+    payload = {
+        "model": "openai/gpt-5.6-sol", 
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
+    
+    try:
+        print(f"Generating SEO blog via OpenRouter (GPT-5.6 Sol) for category: {category}...")
+        response = requests.post(url, headers=headers, json=payload)
+        response_data = response.json()
+        
+        if "choices" in response_data:
+            content_text = response_data["choices"][0]["message"]["content"]
+            text = content_text.replace('```json', '').replace('```', '').strip()
+            return json.loads(text)
+        else:
+            print(f"OpenRouter Error: {response_data}")
+            exit(1)
+    except Exception as e:
+        print(f"Failed to generate content: {e}")
         exit(1)
 
-    random.shuffle(GEMINI_KEYS)
-    for index, api_key in enumerate(GEMINI_KEYS):
-        try:
-            print(f"Trying API Key #{index + 1} for category: {category}...")
-            client = genai.Client(api_key=api_key)
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-            )
-            text = response.text.replace('```json', '').replace('```', '').strip()
-            return json.loads(text)
-        except Exception as e:
-            print(f"API Key #{index + 1} failed: {e}")
-            time.sleep(3)
-            continue
-            
-    print("All Gemini API keys failed or quota exceeded.")
-    exit(1)
+def generate_images_via_gemini(keyword):
+    # Gemini API দিয়ে ইমেজের প্রম্পট ও হাই-কোয়ালিটি ইমেজ তৈরি করা
+    if not GEMINI_KEYS:
+        print("No Gemini API keys found, using fallback generator.")
+        safe_kw = keyword.replace(' ', '%20')
+        return f"[https://image.pollinations.ai/prompt/professional%20](https://image.pollinations.ai/prompt/professional%20){safe_kw}?width=800&height=400&nologo=true", \
+               f"[https://image.pollinations.ai/prompt/creative%20concept%20](https://image.pollinations.ai/prompt/creative%20concept%20){safe_kw}?width=800&height=400&nologo=true"
+    
+    api_key = random.choice(GEMINI_KEYS)
+    
+    try:
+        client = genai.Client(api_key=api_key)
+        prompt_desc = f"Create two distinct, highly descriptive image generation prompts for an article about: {keyword}. Return them as JSON list."
+        
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt_desc,
+        )
+        
+        safe_kw = keyword.replace(' ', '%20')
+        img1 = f"[https://image.pollinations.ai/prompt/photorealistic%20](https://image.pollinations.ai/prompt/photorealistic%20){safe_kw}?width=800&height=400&nologo=true"
+        img2 = f"[https://image.pollinations.ai/prompt/cinematic%20lighting%20](https://image.pollinations.ai/prompt/cinematic%20lighting%20){safe_kw}?width=800&height=400&nologo=true"
+        return img1, img2
+    except Exception as e:
+        print(f"Gemini image generation warning: {e}, using default fallback.")
+        safe_kw = keyword.replace(' ', '%20')
+        return f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_kw}?width=800&height=400&nologo=true", \
+               f"[https://image.pollinations.ai/prompt/abstract%20](https://image.pollinations.ai/prompt/abstract%20){safe_kw}?width=800&height=400&nologo=true"
 
 def publish_to_blogger(title, content, tags):
     token_data = json.loads(TOKEN_JSON)
@@ -104,21 +141,29 @@ def notify_google_indexing(url):
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
     
-    article_data = generate_seo_content(CATEGORY)
+    # ১. OpenRouter (GPT-5.6 Sol) দিয়ে এসইও ব্লগ তৈরি
+    article_data = generate_seo_content_via_openrouter(CATEGORY)
     
-    safe_keyword = article_data['keyword'].replace(' ', '%20')
-    image_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_keyword}?width=800&height=400&nologo=true"
+    # ২. Gemini API দিয়ে ছবি তৈরি ও লিঙ্ক করা
+    img_url_1, img_url_2 = generate_images_via_gemini(article_data['keyword'])
     
+    # ৩. ব্লগের কন্টেন্টের ভেতর দুটি সুন্দর ছবি যুক্ত করা
     final_html_content = f"""
-    <div style="text-align: center;">
-        <img src="{image_url}" alt="{article_data['keyword']}" style="max-width:100%; height:auto; border-radius:8px;"/>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <img src="{img_url_1}" alt="{article_data['keyword']} - Main" style="max-width:100%; height:auto; border-radius:8px;"/>
     </div>
-    <br><br>
+    <br>
     {article_data['content']}
+    <br>
+    <div style="text-align: center; margin-top: 20px;">
+        <img src="{img_url_2}" alt="{article_data['keyword']} - Secondary" style="max-width:100%; height:auto; border-radius:8px;"/>
+    </div>
     """
     
+    # ৪. ব্লগারে পাবলিশ করা
     published_url = publish_to_blogger(article_data['title'], final_html_content, article_data['tags'])
     
+    # ৫. ইনস্ট্যান্ট ইনডেক্সিংয়ে পাঠানো
     if published_url:
         notify_google_indexing(published_url)
-        
+    
