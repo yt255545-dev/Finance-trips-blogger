@@ -32,7 +32,7 @@ def generate_seo_content(category):
     }}
     """
     
-    # পদ্ধতি ১: প্রথমে OpenRouter দিয়ে চেষ্টা করা (আপনার দেওয়া স্ক্রিনশট অনুযায়ী বর্তমান ফ্রি মডেল)
+    # পদ্ধতি ১: প্রথমে OpenRouter-এর অটো ফ্রি রাউটার দিয়ে চেষ্টা করা
     if OPENROUTER_API_KEY:
         try:
             print(f"Trying to generate blog via OpenRouter (Primary)...")
@@ -47,9 +47,9 @@ def generate_seo_content(category):
                 "X-Title": "Blogger Auto Poster"
             }
             
-            # স্ক্রিনশটের তালিকায় থাকা যেকোনো একটি ফ্রি বা রানিং মডেল
+            # openrouter/free ব্যবহার করলে এটি সবসময় সচল যেকোনো একটি ফ্রি মডেল ধরে নেবে
             payload = {
-                "model": "nvidia/llama-3.1-nemotron-70b-instruct:free", 
+                "model": "openrouter/free", 
                 "messages": [
                     {"role": "user", "content": prompt}
                 ]
@@ -66,9 +66,9 @@ def generate_seo_content(category):
             else:
                 print(f"OpenRouter returned unexpected response: {response_data}")
         except Exception as e:
-            print(f"OpenRouter failed/Credit over: {e}. Switching to Gemini backup...")
+            print(f"OpenRouter failed: {e}. Switching to Gemini backup...")
 
-    # পদ্ধতি ২: OpenRouter ফেল করলে বা ক্রেডিট শেষ হলে স্বয়ংক্রিয়ভাবে Gemini (Backup) কাজ করবে
+    # পদ্ধতি ২: OpenRouter ফেল করলে স্বয়ংক্রিয়ভাবে Gemini (Backup) কাজ করবে
     if GEMINI_KEYS:
         try:
             print("Switching to Gemini API for blog generation (Backup)...")
@@ -189,7 +189,6 @@ def notify_google_indexing(url):
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
     
-    # এখন এটি প্রথমে OpenRouter দিয়ে চেষ্টা করবে, ফেল করলে অটো জেমিনি ব্যাকআপ নেবে
     article_data = generate_seo_content(CATEGORY)
     
     img_url_1, img_url_2 = generate_images_via_gemini(article_data['keyword'])
@@ -210,5 +209,3 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
-
-    
