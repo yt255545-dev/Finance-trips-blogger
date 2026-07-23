@@ -3,12 +3,10 @@ import random
 import json
 import time
 import requests
-import base64
-from google import genai
-from google.genai import types
 import google.oauth2.credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from google import genai
 
 # GitHub Secrets থেকে ডেটা সংগ্রহ
 BLOG_ID = os.environ.get("BLOG_ID")
@@ -47,7 +45,6 @@ def generate_seo_content(category):
                 "X-Title": "Blogger Auto Poster"
             }
             
-            # openrouter/free ব্যবহার করলে এটি সবসময় সচল যেকোনো একটি ফ্রি মডেল ধরে নেবে
             payload = {
                 "model": "openrouter/free", 
                 "messages": [
@@ -88,61 +85,18 @@ def generate_seo_content(category):
     print("All content generation methods failed!")
     exit(1)
 
-def generate_images_via_gemini(keyword):
-    if not GEMINI_KEYS:
-        print("No Gemini API keys found for images, using fallback URL.")
-        safe_kw = keyword.replace(' ', '%20')
-        return f"[https://image.pollinations.ai/prompt/professional%20](https://image.pollinations.ai/prompt/professional%20){safe_kw}?width=800&height=400&nologo=true", f"[https://image.pollinations.ai/prompt/creative%20](https://image.pollinations.ai/prompt/creative%20){safe_kw}?width=800&height=400&nologo=true"
-    
-    api_key = random.choice(GEMINI_KEYS)
-    
-    try:
-        client = genai.Client(api_key=api_key)
-        print("Generating images directly via Gemini (Imagen 3)...")
-        
-        # প্রথম ছবি জেনারেট
-        prompt1 = f"A professional, highly detailed, photorealistic wide image representing: {keyword}. High quality, no text, no watermarks."
-        result1 = client.models.generate_images(
-            model='imagen-3.0-generate-001',
-            prompt=prompt1,
-            config=types.GenerateImagesConfig(
-                number_of_images=1,
-                output_mime_type="image/jpeg",
-                aspect_ratio="16:9"
-            )
-        )
-        img1_bytes = result1.generated_images[0].image.image_bytes
-        img1_b64 = base64.b64encode(img1_bytes).decode('utf-8')
-        img_src_1 = f"data:image/jpeg;base64,{img1_b64}"
-        
-        # দ্বিতীয় ছবি জেনারেট
-        prompt2 = f"A creative, modern, cinematic lighting concept art representing: {keyword}. High quality, no text, no watermarks."
-        result2 = client.models.generate_images(
-            model='imagen-3.0-generate-001',
-            prompt=prompt2,
-            config=types.GenerateImagesConfig(
-                number_of_images=1,
-                output_mime_type="image/jpeg",
-                aspect_ratio="16:9"
-            )
-        )
-        img2_bytes = result2.generated_images[0].image.image_bytes
-        img2_b64 = base64.b64encode(img2_bytes).decode('utf-8')
-        img_src_2 = f"data:image/jpeg;base64,{img2_b64}"
-        
-        print("Images generated successfully by Gemini!")
-        return img_src_1, img_src_2
-        
-    except Exception as e:
-        print(f"Gemini direct image generation failed: {e}. Falling back to URL generation.")
-        safe_kw = keyword.replace(' ', '%20')
-        img1 = "https://" + f"image.pollinations.ai/prompt/photorealistic%20{safe_kw}?width=800&height=400&nologo=true"
-        img2 = "https://" + f"image.pollinations.ai/prompt/cinematic%20lighting%20{safe_kw}?width=800&height=400&nologo=true"
-        return img1, img2
+def generate_images(keyword):
+    # নিরাপদ এবং দ্রুত ইমেজ লিংকের জন্য পেশাদার পদ্ধতি
+    safe_kw = keyword.replace(' ', '%20')
+    img1 = f"[https://image.pollinations.ai/prompt/professional%20photorealistic%20](https://image.pollinations.ai/prompt/professional%20photorealistic%20){safe_kw}?width=800&height=400&nologo=true"
+    img2 = f"[https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20](https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20){safe_kw}?width=800&height=400&nologo=true"
+    return img1, img2
 
 def publish_to_blogger(title, content, tags):
     token_data = json.loads(TOKEN_JSON)
-    token_uri = token_data.get('token_uri', "https://" + '[oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)')
+    token_uri = token_data.get('token_uri', "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)")
+    if not token_uri or "http" not in token_uri:
+        token_uri = "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
     token_uri = token_uri.replace('[', '').replace(']', '').strip()
     
     creds = google.oauth2.credentials.Credentials(
@@ -172,7 +126,7 @@ def notify_google_indexing(url):
     try:
         indexing_credentials = service_account.Credentials.from_service_account_info(
             json.loads(INDEXING_JSON),
-            scopes=["https://" + '[www.googleapis.com/auth/indexing](https://www.googleapis.com/auth/indexing)']
+            scopes=["[https://www.googleapis.com/auth/indexing](https://www.googleapis.com/auth/indexing)"]
         )
         service = build('indexing', 'v3', credentials=indexing_credentials)
         
@@ -191,7 +145,7 @@ if __name__ == "__main__":
     
     article_data = generate_seo_content(CATEGORY)
     
-    img_url_1, img_url_2 = generate_images_via_gemini(article_data['keyword'])
+    img_url_1, img_url_2 = generate_images(article_data['keyword'])
     
     final_html_content = f"""
     <div style="text-align: center; margin-bottom: 20px;">
