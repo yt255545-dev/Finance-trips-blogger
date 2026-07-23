@@ -29,8 +29,7 @@ def generate_seo_content(category):
     }}
     """
     
-    # একাধিক মডেলের লিস্ট (একটি ব্যস্ত থাকলে অন্যটি ট্রাই করবে)
-    models_to_try = ['gemini-3.6-flash', 'gemini-3.5-flash']
+    models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash']
     
     random.shuffle(GEMINI_KEYS)
     for api_key in GEMINI_KEYS:
@@ -54,10 +53,15 @@ def generate_seo_content(category):
 
 def publish_to_blogger(title, content, tags):
     token_data = json.loads(TOKEN_JSON)
+    
+    # ইউআরএল থেকে ভুল ব্র্যাকেট বা স্পেস পরিষ্কার করার লজিক
+    token_uri = token_data.get('token_uri', '[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)')
+    token_uri = token_uri.replace('[', '').replace(']', '').strip()
+    
     creds = google.oauth2.credentials.Credentials(
         token=token_data.get('token'),
         refresh_token=token_data.get('refresh_token'),
-        token_uri=token_data.get('token_uri', '[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)'),
+        token_uri=token_uri,
         client_id=token_data.get('client_id'),
         client_secret=token_data.get('client_secret')
     )
@@ -120,3 +124,4 @@ if __name__ == "__main__":
     # 5. গুগলে ইন্ডেক্সিং এর জন্য পাঠানো
     if published_url:
         notify_google_indexing(published_url)
+        
