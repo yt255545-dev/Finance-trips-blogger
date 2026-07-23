@@ -10,8 +10,8 @@ from googleapiclient.discovery import build
 
 # GitHub Secrets থেকে প্রয়োজনীয় তথ্য সংগ্রহ
 BLOG_ID = os.environ.get("BLOG_ID")
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY") # OpenRouter API Key
-GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS", "").split(",") if k.strip()] # Gemini API Key
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS", "").split(",") if k.strip()]
 TOKEN_JSON = os.environ.get("BLOGGER_TOKEN_JSON") 
 INDEXING_JSON = os.environ.get("INDEXING_JSON")
 CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
@@ -30,11 +30,13 @@ def generate_seo_content_via_openrouter(category):
     }}
     """
     
-    # URL একদম নিখুঁতভাবে দেওয়া হলো (কোনো ব্র্যাকেট ছাড়া)
+    # ব্র্যাকেট ছাড়া একদম প্লেইন URL
     url = "[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)"
     
+    api_key = OPENROUTER_API_KEY.strip() if OPENROUTER_API_KEY else ""
+    
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY.strip() if OPENROUTER_API_KEY else ''}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "[https://github.com](https://github.com)",
         "X-Title": "Blogger Auto Poster"
@@ -140,13 +142,13 @@ def notify_google_indexing(url):
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
     
-    # ১. OpenRouter দিয়ে এসইও ব্লগ তৈরি
+    # ১. OpenRouter দিয়ে কন্টেন্ট জেনারেট
     article_data = generate_seo_content_via_openrouter(CATEGORY)
     
-    # ২. ছবি তৈরি করা
+    # ২. Gemini/Fallback দিয়ে ছবি জেনারেট
     img_url_1, img_url_2 = generate_images_via_gemini(article_data['keyword'])
     
-    # ৩. কন্টেন্টের ভেতর দুটি ছবি বসানো
+    # ৩. HTML ডিজাইন
     final_html_content = f"""
     <div style="text-align: center; margin-bottom: 20px;">
         <img src="{img_url_1}" alt="{article_data['keyword']} - Main" style="max-width:100%; height:auto; border-radius:8px;"/>
@@ -159,10 +161,10 @@ if __name__ == "__main__":
     </div>
     """
     
-    # ৪. ব্লগারে পোস্ট পাবলিশ করা
+    # ৪. ব্লগারে পাবলিশ
     published_url = publish_to_blogger(article_data['title'], final_html_content, article_data['tags'])
     
-    # ৫. গুগল ইনডেক্সিং পাঠানো
+    # ৫. গুগল ইনডেক্সিং
     if published_url:
         notify_google_indexing(published_url)
-    
+        
