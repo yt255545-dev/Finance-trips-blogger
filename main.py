@@ -18,7 +18,7 @@ TOKEN_JSON = os.environ.get("BLOGGER_TOKEN_JSON")
 INDEXING_JSON = os.environ.get("INDEXING_JSON")
 CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
-def generate_seo_content_via_openrouter(category):
+def generate_seo_content(category):
     prompt = f"""
     Act as an expert SEO blog writer. Write a detailed, long, and fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
     Include a catchy Title, Meta Description, and Focus Keyword.
@@ -32,47 +32,65 @@ def generate_seo_content_via_openrouter(category):
     }}
     """
     
-    host = "openrouter.ai"
-    endpoint = "/api/v1/chat/completions"
-    url = "https://" + host + endpoint
-    
-    api_key = OPENROUTER_API_KEY.strip() if OPENROUTER_API_KEY else ""
-    
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://" + "github.com",
-        "X-Title": "Blogger Auto Poster"
-    }
-    
-    # বর্তমানের নিশ্চিত ফ্রি মডেল ব্যবহার করা হচ্ছে
-    payload = {
-        "model": "deepseek/deepseek-chat:free", 
-        "messages": [
-            {"role": "user", "content": prompt}
-        ]
-    }
-    
-    try:
-        print(f"Generating SEO blog via OpenRouter for category: {category}...")
-        response = requests.post(url, headers=headers, json=payload)
-        response_data = response.json()
-        
-        if "choices" in response_data:
-            content_text = response_data["choices"][0]["message"]["content"]
-            text = content_text.replace('```json', '').replace('```', '').strip()
+    # পদ্ধতি ১: প্রথমে OpenRouter দিয়ে চেষ্টা করা (আপনার দেওয়া স্ক্রিনশট অনুযায়ী বর্তমান ফ্রি মডেল)
+    if OPENROUTER_API_KEY:
+        try:
+            print(f"Trying to generate blog via OpenRouter (Primary)...")
+            host = "openrouter.ai"
+            endpoint = "/api/v1/chat/completions"
+            url = "https://" + host + endpoint
+            
+            headers = {
+                "Authorization": f"Bearer {OPENROUTER_API_KEY.strip()}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://" + "github.com",
+                "X-Title": "Blogger Auto Poster"
+            }
+            
+            # স্ক্রিনশটের তালিকায় থাকা যেকোনো একটি ফ্রি বা রানিং মডেল
+            payload = {
+                "model": "nvidia/llama-3.1-nemotron-70b-instruct:free", 
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ]
+            }
+            
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            response_data = response.json()
+            
+            if "choices" in response_data:
+                content_text = response_data["choices"][0]["message"]["content"]
+                text = content_text.replace('```json', '').replace('```', '').strip()
+                print("Successfully generated content via OpenRouter!")
+                return json.loads(text)
+            else:
+                print(f"OpenRouter returned unexpected response: {response_data}")
+        except Exception as e:
+            print(f"OpenRouter failed/Credit over: {e}. Switching to Gemini backup...")
+
+    # পদ্ধতি ২: OpenRouter ফেল করলে বা ক্রেডিট শেষ হলে স্বয়ংক্রিয়ভাবে Gemini (Backup) কাজ করবে
+    if GEMINI_KEYS:
+        try:
+            print("Switching to Gemini API for blog generation (Backup)...")
+            api_key = random.choice(GEMINI_KEYS)
+            client = genai.Client(api_key=api_key)
+            
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+            text = response.text.replace('```json', '').replace('```', '').strip()
+            print("Successfully generated content via Gemini Backup!")
             return json.loads(text)
-        else:
-            print(f"OpenRouter Response Error: {response_data}")
-            exit(1)
-    except Exception as e:
-        print(f"Failed to generate content: {e}")
-        exit(1)
+        except Exception as e:
+            print(f"Gemini generation also failed: {e}")
+            
+    print("All content generation methods failed!")
+    exit(1)
 
 def generate_images_via_gemini(keyword):
-    # জেমিনির Imagen 3 মডেল দিয়ে সরাসরি ছবি তৈরি করা হচ্ছে
     if not GEMINI_KEYS:
-        print("No Gemini API keys found, using fallback URL.")
+        print("No Gemini API keys found for images, using fallback URL.")
         safe_kw = keyword.replace(' ', '%20')
         return f"[https://image.pollinations.ai/prompt/professional%20](https://image.pollinations.ai/prompt/professional%20){safe_kw}?width=800&height=400&nologo=true", f"[https://image.pollinations.ai/prompt/creative%20](https://image.pollinations.ai/prompt/creative%20){safe_kw}?width=800&height=400&nologo=true"
     
@@ -171,7 +189,8 @@ def notify_google_indexing(url):
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
     
-    article_data = generate_seo_content_via_openrouter(CATEGORY)
+    # এখন এটি প্রথমে OpenRouter দিয়ে চেষ্টা করবে, ফেল করলে অটো জেমিনি ব্যাকআপ নেবে
+    article_data = generate_seo_content(CATEGORY)
     
     img_url_1, img_url_2 = generate_images_via_gemini(article_data['keyword'])
     
@@ -191,4 +210,5 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
+
     
