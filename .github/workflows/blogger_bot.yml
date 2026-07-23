@@ -7,7 +7,7 @@ on:
     - cron: '0 1,4,7,10,13,16,19,22 * * *'
     - cron: '30 1,4,7,10,13,16,19,22 * * *'
 
-  workflow_dispatch: # এটি থাকলেই গিটহাবে 'Run workflow' বাটনটি দেখাবে
+  workflow_dispatch:
 
 jobs:
   publish_post:
@@ -45,6 +45,7 @@ jobs:
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
           GEMINI_KEYS: ${{ secrets.GEMINI_KEYS }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}  # এই লাইনটি যুক্ত করা হয়েছে
           BLOGGER_TOKEN_JSON: ${{ secrets.BLOGGER_TOKEN_JSON }}
           INDEXING_JSON: ${{ secrets.INDEXING_JSON }}
           CATEGORY: ${{ env.CATEGORY }}
