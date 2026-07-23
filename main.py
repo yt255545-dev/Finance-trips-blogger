@@ -45,9 +45,9 @@ def generate_seo_content_via_openrouter(category):
         "X-Title": "Blogger Auto Poster"
     }
     
-    # ওপেন রাউটারের ১০০% ভ্যালিড এবং কার্যকরী ফ্রি মডেল
+    # বর্তমানের নিশ্চিত ফ্রি মডেল ব্যবহার করা হচ্ছে
     payload = {
-        "model": "google/gemini-2.5-flash:free", 
+        "model": "deepseek/deepseek-chat:free", 
         "messages": [
             {"role": "user", "content": prompt}
         ]
@@ -191,4 +191,4 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
-        
+    
