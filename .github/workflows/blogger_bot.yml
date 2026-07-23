@@ -1,12 +1,20 @@
-name: Auto Blog Publisher with Indexing
+name: Auto Blog Publisher with Interval
 
 on:
   schedule:
+    # ১. Personal Finance: প্রতি ৩ ঘণ্টা পরপর (যেমন: রাত ১২টা, সকাল ৩টা, সকাল ৬টা...)
     - cron: '0 */3 * * *'
+    
+    # ২. Finance Book Summary: Personal Finance এর ৩০ মিনিট পর (যেমন: রাত ১২:৩০, সকাল ৩:৩০...)
     - cron: '30 */3 * * *'
+    
+    # ৩. Finance News: তার ঠিক ১ ঘণ্টা বা নির্দিষ্ট সময়ে (যেমন: রাত ১টা, সকাল ৪টা...)
     - cron: '0 1,4,7,10,13,16,19,22 * * *'
+    
+    # ৪. World Viral News: Finance News এর ৩০ মিনিট পর (যেমন: রাত ১:৩০, সকাল ৪:৩০...)
     - cron: '30 1,4,7,10,13,16,19,22 * * *'
-  workflow_dispatch: 
+
+  workflow_dispatch: # ম্যানুয়ালি টেস্ট করার জন্য
 
 jobs:
   publish_post:
@@ -16,26 +24,28 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: setup-python@v4
         with:
           python-version: '3.x'
 
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
-      - name: Determine Category based on Time
+      - name: Determine Category based on Scheduled Time
         id: set_category
         run: |
-          if [ "${{ github.event.schedule }}" == '0 */3 * * *' ]; then
+          EVENT_CRON="${{ github.event.schedule }}"
+          
+          if [ "$EVENT_CRON" == '0 */3 * * *' ]; then
             echo "CATEGORY=Personal Finance" >> $GITHUB_ENV
-          elif [ "${{ github.event.schedule }}" == '30 */3 * * *' ]; then
+          elif [ "$EVENT_CRON" == '30 */3 * * *' ]; then
             echo "CATEGORY=Finance Book Summary" >> $GITHUB_ENV
-          elif [ "${{ github.event.schedule }}" == '0 1,4,7,10,13,16,19,22 * * *' ]; then
+          elif [ "$EVENT_CRON" == '0 1,4,7,10,13,16,19,22 * * *' ]; then
             echo "CATEGORY=Finance News" >> $GITHUB_ENV
-          elif [ "${{ github.event.schedule }}" == '30 1,4,7,10,13,16,19,22 * * *' ]; then
+          elif [ "$EVENT_CRON" == '30 1,4,7,10,13,16,19,22 * * *' ]; then
             echo "CATEGORY=World Viral News" >> $GITHUB_ENV
           else
-            echo "CATEGORY=Personal Finance" >> $GITHUB_ENV
+            echo "CATEGORY=Personal Finance" >> $GITHUB_ENV # ম্যানুয়ালি রান করলে ডিফল্টভাবে এটি নেবে
           fi
 
       - name: Run Python Script
@@ -44,5 +54,6 @@ jobs:
           GEMINI_KEYS: ${{ secrets.GEMINI_KEYS }}
           BLOGGER_TOKEN_JSON: ${{ secrets.BLOGGER_TOKEN_JSON }}
           INDEXING_JSON: ${{ secrets.INDEXING_JSON }}
-        run: python main.py
+          CATEGORY: ${{ env.CATEGORY }}
+        python main.py
         
