@@ -23,7 +23,6 @@ def clean_and_parse_json(text):
         end = text.rfind('}')
         if start != -1 and end != -1:
             text = text[start:end+1]
-        # strict=False দিয়ে কন্ট্রোল ক্যারেক্টার জনিত এরর এড়িয়ে চলা
         return json.loads(text, strict=False)
     except Exception as e:
         print(f"JSON Parse Error: {e}")
@@ -43,7 +42,7 @@ def generate_seo_content(category):
     }}
     """
     
-    # পদ্ধতি ১: প্রথমে OpenRouter-এর অটো ফ্রি রাউটার দিয়ে চেষ্টা করা
+    # পদ্ধতি ১: OpenRouter দিয়ে চেষ্টা করা
     if OPENROUTER_API_KEY:
         try:
             print(f"Trying to generate blog via OpenRouter (Primary)...")
@@ -77,7 +76,7 @@ def generate_seo_content(category):
         except Exception as e:
             print(f"OpenRouter failed: {e}. Switching to Gemini backup...")
 
-    # পদ্ধতি ২: OpenRouter ফেল করলে স্বয়ংক্রিয়ভাবে Gemini (Backup) কাজ করবে
+    # পদ্ধতি ২: Gemini ব্যাকআপ
     if GEMINI_KEYS:
         try:
             print("Switching to Gemini API for blog generation (Backup)...")
@@ -109,8 +108,12 @@ def publish_to_blogger(title, content, tags):
         print(f"Error parsing BLOGGER_TOKEN_JSON: {e}")
         exit(1)
     
-    token_uri = "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
-    
+    # টোকেন ইউআরআই থেকে সব ধরনের ব্র্যাকেট বা ভুল ক্যারেক্টার জোরপূর্বক পরিষ্কার করা হলো
+    raw_uri = str(token_data.get('token_uri', '[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)'))
+    token_uri = raw_uri.replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
+    if not token_uri.startswith('http'):
+        token_uri = "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
+
     creds = google.oauth2.credentials.Credentials(
         token=token_data.get('token'),
         refresh_token=token_data.get('refresh_token'),
@@ -175,5 +178,5 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
-        
+    
 
