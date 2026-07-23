@@ -29,24 +29,27 @@ def generate_seo_content(category):
     }}
     """
     
-    # একাধিক API Key দিয়ে চেষ্টার জন্য লুপ
+    # একাধিক মডেলের লিস্ট (একটি ব্যস্ত থাকলে অন্যটি ট্রাই করবে)
+    models_to_try = ['gemini-3.6-flash', 'gemini-3.5-flash']
+    
     random.shuffle(GEMINI_KEYS)
     for api_key in GEMINI_KEYS:
-        try:
-            client = genai.Client(api_key=api_key)
-            # স্থিতিশীল মডেল ব্যবহার করা হলো
-            response = client.models.generate_content(
-                model='gemini-3.5-flash',
-                contents=prompt,
-            )
-            text = response.text.replace('```json', '').replace('```', '').strip()
-            return json.loads(text)
-        except Exception as e:
-            print(f"API Key failed or high demand error, trying next key. Error: {e}")
-            time.sleep(2)
-            continue
+        client = genai.Client(api_key=api_key)
+        for model_name in models_to_try:
+            try:
+                print(f"Trying model {model_name} with an API key...")
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                text = response.text.replace('```json', '').replace('```', '').strip()
+                return json.loads(text)
+            except Exception as e:
+                print(f"Model {model_name} failed with error: {e}")
+                time.sleep(2)
+                continue
             
-    print("All Gemini API keys failed or quota/server busy.")
+    print("All Gemini API keys and models failed or quota/server busy.")
     exit(1)
 
 def publish_to_blogger(title, content, tags):
@@ -117,4 +120,3 @@ if __name__ == "__main__":
     # 5. গুগলে ইন্ডেক্সিং এর জন্য পাঠানো
     if published_url:
         notify_google_indexing(published_url)
-    
