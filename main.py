@@ -2,7 +2,8 @@ import os
 import random
 import json
 import requests
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import google.oauth2.credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -16,8 +17,9 @@ CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
 def generate_seo_content(category):
     api_key = random.choice(GEMINI_KEYS).strip()
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # নতুন জেমিনি ক্লায়েন্ট ইনিশিয়ালাইজেশন
+    client = genai.Client(api_key=api_key)
     
     prompt = f"""
     Act as an expert SEO blog writer. Write a highly engaging, fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
@@ -32,16 +34,19 @@ def generate_seo_content(category):
     }}
     """
     
-    response = model.generate_content(prompt)
     try:
+        # নতুন লাইব্রেরি অনুযায়ী কন্টেন্ট জেনারেশন (gemini-2.5-flash বা উপলব্ধ মডেল ব্যবহার করা হলো)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
         text = response.text.replace('```json', '').replace('```', '').strip()
         return json.loads(text)
     except Exception as e:
-        print("Error parsing Gemini JSON:", e)
+        print("Error generating content with Gemini:", e)
         exit(1)
 
 def publish_to_blogger(title, content, tags):
-    # Blogger API অথেনটিকেশন
     token_data = json.loads(TOKEN_JSON)
     creds = google.oauth2.credentials.Credentials(
         token=token_data.get('token'),
@@ -67,7 +72,6 @@ def publish_to_blogger(title, content, tags):
     return post_url
 
 def notify_google_indexing(url):
-    # Google Indexing API অথেনটিকেশন
     try:
         indexing_credentials = service_account.Credentials.from_service_account_info(
             json.loads(INDEXING_JSON),
@@ -110,4 +114,3 @@ if __name__ == "__main__":
     # 5. গুগলে ইন্ডেক্সিং এর জন্য পাঠানো
     if published_url:
         notify_google_indexing(published_url)
-
