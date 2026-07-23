@@ -35,9 +35,9 @@ def generate_seo_content(category):
     """
     
     try:
-        # নতুন লাইব্রেরি অনুযায়ী কন্টেন্ট জেনারেশন (gemini-2.5-flash বা উপলব্ধ মডেল ব্যবহার করা হলো)
+        # মডেলের নাম gemini-3.5-flash এ আপডেট করা হলো
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.5-flash',
             contents=prompt,
         )
         text = response.text.replace('```json', '').replace('```', '').strip()
