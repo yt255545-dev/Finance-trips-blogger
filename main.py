@@ -16,6 +16,20 @@ TOKEN_JSON = os.environ.get("BLOGGER_TOKEN_JSON")
 INDEXING_JSON = os.environ.get("INDEXING_JSON")
 CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
+def clean_and_parse_json(text):
+    try:
+        # Markdown ব্লক ট্যাগ থাকলে তা পরিষ্কার করা
+        text = text.replace('```json', '').replace('```', '').strip()
+        # যদি এক্সট্রা টেক্সট থাকে তবে প্রথম { থেকে শেষ } পর্যন্ত এক্সট্রাক্ট করা
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1:
+            text = text[start:end+1]
+        return json.loads(text)
+    except Exception as e:
+        print(f"JSON Parse Error: {e}")
+        raise e
+
 def generate_seo_content(category):
     prompt = f"""
     Act as an expert SEO blog writer. Write a detailed, long, and fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
@@ -57,9 +71,8 @@ def generate_seo_content(category):
             
             if "choices" in response_data:
                 content_text = response_data["choices"][0]["message"]["content"]
-                text = content_text.replace('```json', '').replace('```', '').strip()
                 print("Successfully generated content via OpenRouter!")
-                return json.loads(text)
+                return clean_and_parse_json(content_text)
             else:
                 print(f"OpenRouter returned unexpected response: {response_data}")
         except Exception as e:
@@ -73,12 +86,11 @@ def generate_seo_content(category):
             client = genai.Client(api_key=api_key)
             
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.0-flash',
                 contents=prompt,
             )
-            text = response.text.replace('```json', '').replace('```', '').strip()
             print("Successfully generated content via Gemini Backup!")
-            return json.loads(text)
+            return clean_and_parse_json(response.text)
         except Exception as e:
             print(f"Gemini generation also failed: {e}")
             
@@ -98,7 +110,6 @@ def publish_to_blogger(title, content, tags):
         print(f"Error parsing BLOGGER_TOKEN_JSON: {e}")
         exit(1)
     
-    # টোকেন ইউআরআই ফিক্স করার সেফটি মেকানিজম
     token_uri = "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
     
     creds = google.oauth2.credentials.Credentials(
@@ -165,4 +176,5 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
+            
 
