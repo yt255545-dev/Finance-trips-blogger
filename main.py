@@ -1,7 +1,6 @@
 import os
 import random
 import json
-import time
 import requests
 import google.oauth2.credentials
 from google.oauth2 import service_account
@@ -11,9 +10,13 @@ from google import genai
 BLOG_ID = os.environ.get("BLOG_ID")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS", "").split(",") if k.strip()]
-TOKEN_JSON = os.environ.get("BLOGGER_TOKEN_JSON") 
 INDEXING_JSON = os.environ.get("INDEXING_JSON")
 CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
+
+# নতুন সিক্রেট থেকে সরাসরি টোকেন ও ক্রেডেনশিয়াল নেওয়া
+REFRESH_TOKEN = os.environ.get("BLOGGER_REFRESH_TOKEN", "").strip().replace('[', '').replace(']', '').replace("'", "").replace('"', "")
+CLIENT_ID = os.environ.get("BLOGGER_CLIENT_ID", "").strip().replace('[', '').replace(']', '').replace("'", "").replace('"', "")
+CLIENT_SECRET = os.environ.get("BLOGGER_CLIENT_SECRET", "").strip().replace('[', '').replace(']', '').replace("'", "").replace('"', "")
 
 def clean_and_parse_json(text):
     try:
@@ -41,28 +44,20 @@ def generate_seo_content(category):
     }}
     """
     
-    # পদ্ধতি ১: OpenRouter দিয়ে চেষ্টা করা
     if OPENROUTER_API_KEY:
         try:
             print(f"Trying to generate blog via OpenRouter (Primary)...")
-            host = "openrouter.ai"
-            endpoint = "/api/v1/chat/completions"
-            url = "https://" + host + endpoint
-            
+            url = "[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)"
             headers = {
                 "Authorization": f"Bearer {OPENROUTER_API_KEY.strip()}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://" + "github.com",
+                "HTTP-Referer": "[https://github.com](https://github.com)",
                 "X-Title": "Blogger Auto Poster"
             }
-            
             payload = {
                 "model": "openrouter/free", 
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ]
+                "messages": [{"role": "user", "content": prompt}]
             }
-            
             response = requests.post(url, headers=headers, json=payload, timeout=30)
             response_data = response.json()
             
@@ -70,18 +65,14 @@ def generate_seo_content(category):
                 content_text = response_data["choices"][0]["message"]["content"]
                 print("Successfully generated content via OpenRouter!")
                 return clean_and_parse_json(content_text)
-            else:
-                print(f"OpenRouter returned unexpected response: {response_data}")
         except Exception as e:
             print(f"OpenRouter failed: {e}. Switching to Gemini backup...")
 
-    # পদ্ধতি ২: Gemini ব্যাকআপ
     if GEMINI_KEYS:
         try:
             print("Switching to Gemini API for blog generation (Backup)...")
             api_key = random.choice(GEMINI_KEYS)
             client = genai.Client(api_key=api_key)
-            
             response = client.models.generate_content(
                 model='gemini-2.0-flash',
                 contents=prompt,
@@ -91,25 +82,13 @@ def generate_seo_content(category):
         except Exception as e:
             print(f"Gemini generation failed: {e}. Using Safe Fallback Article...")
 
-    # পদ্ধতি ৩: সব এপিআই কোটা শেষ হলে ডিফল্ট ফলব্যাক কন্টেন্ট (যাতে প্রজেক্ট ফেইল না করে)
-    print("All AI methods failed or quota exhausted. Generating Fallback Content...")
-    fallback_data = {
+    print("All AI methods failed. Generating Fallback Content...")
+    return {
         "title": f"Complete Guide to Smart {CATEGORY} Management in 2026",
         "keyword": category.lower(),
         "tags": [category, "Trending", "Guide"],
-        "content": f"""
-        <h2>Introduction to {category}</h2>
-        <p>Managing your {category.lower()} effectively is essential for long-term success and financial freedom. In today's fast-paced world, staying updated with modern strategies can make all the difference.</p>
-        <h3>Key Strategies to Follow</h3>
-        <ul>
-            <li>Set clear and realistic goals.</li>
-            <li>Monitor your progress regularly.</li>
-            <li>Adapt to new market trends and tools.</li>
-        </ul>
-        <p>By implementing these foundational steps, you will build a strong path toward achieving your objectives.</p>
-        """
+        "content": f"<h2>Introduction to {category}</h2><p>Managing your {category.lower()} effectively is essential for long-term success.</p>"
     }
-    return fallback_data
 
 def generate_images(keyword):
     try:
@@ -118,27 +97,15 @@ def generate_images(keyword):
         img2 = f"[https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20](https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20){safe_kw}?width=800&height=400&nologo=true"
         return img1, img2
     except Exception:
-        # ছবি তৈরিতে সমস্যা হলে ডিফল্ট ইমেজ ইউআরএল ব্যবহার হবে
         return "[https://picsum.photos/800/400?random=1](https://picsum.photos/800/400?random=1)", "[https://picsum.photos/800/400?random=2](https://picsum.photos/800/400?random=2)"
 
 def publish_to_blogger(title, content, tags):
-    try:
-        token_data = json.loads(TOKEN_JSON)
-    except Exception as e:
-        print(f"Error parsing BLOGGER_TOKEN_JSON: {e}")
-        exit(1)
-    
-    access_token = str(token_data.get('token', '')).replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
-    refresh_token = str(token_data.get('refresh_token', '')).replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
-    client_id = str(token_data.get('client_id', '')).replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
-    client_secret = str(token_data.get('client_secret', '')).replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
-
     creds = google.oauth2.credentials.Credentials(
-        token=access_token,
-        refresh_token=refresh_token,
+        token=None,
+        refresh_token=REFRESH_TOKEN,
         token_uri="[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)",
-        client_id=client_id,
-        client_secret=client_secret
+        client_id=CLIENT_ID,
+        client_secret=CLIENT_SECRET
     )
     
     service = build('blogger', 'v3', credentials=creds)
@@ -163,12 +130,7 @@ def notify_google_indexing(url):
             scopes=["[https://www.googleapis.com/auth/indexing](https://www.googleapis.com/auth/indexing)"]
         )
         service = build('indexing', 'v3', credentials=indexing_credentials)
-        
-        body = {
-            "url": url,
-            "type": "URL_UPDATED"
-        }
-        
+        body = {"url": url, "type": "URL_UPDATED"}
         response = service.urlNotifications().publish(body=body).execute()
         print(f"Google Indexing API Notified Successfully! Response: {response}")
     except Exception as e:
@@ -176,9 +138,7 @@ def notify_google_indexing(url):
 
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
-    
     article_data = generate_seo_content(CATEGORY)
-    
     img_url_1, img_url_2 = generate_images(article_data['keyword'])
     
     final_html_content = f"""
@@ -194,7 +154,5 @@ if __name__ == "__main__":
     """
     
     published_url = publish_to_blogger(article_data['title'], final_html_content, article_data['tags'])
-    
     if published_url:
         notify_google_indexing(published_url)
-        
