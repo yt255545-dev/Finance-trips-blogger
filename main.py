@@ -3,7 +3,9 @@ import random
 import json
 import time
 import requests
+import base64
 from google import genai
+from google.genai import types
 import google.oauth2.credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -30,7 +32,6 @@ def generate_seo_content_via_openrouter(category):
     }}
     """
     
-    # URL-এর কপি-পেস্ট সমস্যা সমাধানের জন্য লিংকটিকে ভেঙে যুক্ত করা হলো
     host = "openrouter.ai"
     endpoint = "/api/v1/chat/completions"
     url = "https://" + host + endpoint
@@ -44,8 +45,9 @@ def generate_seo_content_via_openrouter(category):
         "X-Title": "Blogger Auto Poster"
     }
     
+    # OpenRouter-এর সবচেয়ে শক্তিশালী ফ্রি মডেল (Nemotron 3 Ultra) ব্যবহার করা হচ্ছে
     payload = {
-        "model": "openai/gpt-5.6-sol", 
+        "model": "nvidia/nemotron-3-ultra:free", 
         "messages": [
             {"role": "user", "content": prompt}
         ]
@@ -68,33 +70,57 @@ def generate_seo_content_via_openrouter(category):
         exit(1)
 
 def generate_images_via_gemini(keyword):
+    # জেমিনির Imagen 3 মডেল দিয়ে সরাসরি ছবি তৈরি করা হচ্ছে
     if not GEMINI_KEYS:
-        print("No Gemini API keys found, using default fallback.")
+        print("No Gemini API keys found, using fallback URL.")
         safe_kw = keyword.replace(' ', '%20')
-        img1 = "https://" + f"image.pollinations.ai/prompt/professional%20{safe_kw}?width=800&height=400&nologo=true"
-        img2 = "https://" + f"image.pollinations.ai/prompt/creative%20concept%20{safe_kw}?width=800&height=400&nologo=true"
-        return img1, img2
+        return f"[https://image.pollinations.ai/prompt/professional%20](https://image.pollinations.ai/prompt/professional%20){safe_kw}?width=800&height=400&nologo=true", f"[https://image.pollinations.ai/prompt/creative%20](https://image.pollinations.ai/prompt/creative%20){safe_kw}?width=800&height=400&nologo=true"
     
     api_key = random.choice(GEMINI_KEYS)
     
     try:
         client = genai.Client(api_key=api_key)
-        prompt_desc = f"Create two distinct, highly descriptive image generation prompts for an article about: {keyword}. Return them as JSON list."
+        print("Generating images directly via Gemini (Imagen 3)...")
         
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt_desc,
+        # প্রথম ছবি জেনারেট
+        prompt1 = f"A professional, highly detailed, photorealistic wide image representing: {keyword}. High quality, no text, no watermarks."
+        result1 = client.models.generate_images(
+            model='imagen-3.0-generate-001',
+            prompt=prompt1,
+            config=types.GenerateImagesConfig(
+                number_of_images=1,
+                output_mime_type="image/jpeg",
+                aspect_ratio="16:9"
+            )
         )
+        img1_bytes = result1.generated_images[0].image.image_bytes
+        img1_b64 = base64.b64encode(img1_bytes).decode('utf-8')
+        img_src_1 = f"data:image/jpeg;base64,{img1_b64}"
         
+        # দ্বিতীয় ছবি জেনারেট
+        prompt2 = f"A creative, modern, cinematic lighting concept art representing: {keyword}. High quality, no text, no watermarks."
+        result2 = client.models.generate_images(
+            model='imagen-3.0-generate-001',
+            prompt=prompt2,
+            config=types.GenerateImagesConfig(
+                number_of_images=1,
+                output_mime_type="image/jpeg",
+                aspect_ratio="16:9"
+            )
+        )
+        img2_bytes = result2.generated_images[0].image.image_bytes
+        img2_b64 = base64.b64encode(img2_bytes).decode('utf-8')
+        img_src_2 = f"data:image/jpeg;base64,{img2_b64}"
+        
+        print("Images generated successfully by Gemini!")
+        return img_src_1, img_src_2
+        
+    except Exception as e:
+        print(f"Gemini direct image generation failed: {e}. Falling back to URL generation.")
+        # কোনো কারণে জেমিনির ইমেজ জেনারেশন লিমিট শেষ হলে, ব্যাকআপ হিসেবে এটি কাজ করবে
         safe_kw = keyword.replace(' ', '%20')
         img1 = "https://" + f"image.pollinations.ai/prompt/photorealistic%20{safe_kw}?width=800&height=400&nologo=true"
         img2 = "https://" + f"image.pollinations.ai/prompt/cinematic%20lighting%20{safe_kw}?width=800&height=400&nologo=true"
-        return img1, img2
-    except Exception as e:
-        print(f"Gemini image generation warning: {e}, using default fallback.")
-        safe_kw = keyword.replace(' ', '%20')
-        img1 = "https://" + f"image.pollinations.ai/prompt/{safe_kw}?width=800&height=400&nologo=true"
-        img2 = "https://" + f"image.pollinations.ai/prompt/abstract%20{safe_kw}?width=800&height=400&nologo=true"
         return img1, img2
 
 def publish_to_blogger(title, content, tags):
@@ -152,13 +178,13 @@ if __name__ == "__main__":
     
     final_html_content = f"""
     <div style="text-align: center; margin-bottom: 20px;">
-        <img src="{img_url_1}" alt="{article_data['keyword']} - Main" style="max-width:100%; height:auto; border-radius:8px;"/>
+        <img src="{img_url_1}" alt="{article_data['keyword']} - Main Image" style="max-width:100%; height:auto; border-radius:8px;"/>
     </div>
     <br>
     {article_data['content']}
     <br>
     <div style="text-align: center; margin-top: 20px;">
-        <img src="{img_url_2}" alt="{article_data['keyword']} - Secondary" style="max-width:100%; height:auto; border-radius:8px;"/>
+        <img src="{img_url_2}" alt="{article_data['keyword']} - Secondary Image" style="max-width:100%; height:auto; border-radius:8px;"/>
     </div>
     """
     
@@ -166,4 +192,4 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
-    
+        
