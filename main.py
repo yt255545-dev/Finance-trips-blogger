@@ -108,16 +108,11 @@ def publish_to_blogger(title, content, tags):
         print(f"Error parsing BLOGGER_TOKEN_JSON: {e}")
         exit(1)
     
-    # টোকেন ইউআরআই থেকে সব ধরনের ব্র্যাকেট বা ভুল ক্যারেক্টার জোরপূর্বক পরিষ্কার করা হলো
-    raw_uri = str(token_data.get('token_uri', '[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)'))
-    token_uri = raw_uri.replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
-    if not token_uri.startswith('http'):
-        token_uri = "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
-
+    # এখানে টোকেন ইউআরআই সরাসরি ফিক্সড স্ট্রিং দিয়ে দেওয়া হলো, যাতে কোনো মডিফিকেশন বা ব্র্যাকেট না আসে
     creds = google.oauth2.credentials.Credentials(
         token=token_data.get('token'),
         refresh_token=token_data.get('refresh_token'),
-        token_uri=token_uri,
+        token_uri="[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)",
         client_id=token_data.get('client_id'),
         client_secret=token_data.get('client_secret')
     )
@@ -178,5 +173,6 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
+        
     
 
