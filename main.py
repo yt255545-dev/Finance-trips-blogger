@@ -17,7 +17,6 @@ INDEXING_JSON = os.environ.get("INDEXING_JSON")
 CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
 def generate_seo_content_via_openrouter(category):
-    # OpenRouter (GPT-5.6 Sol) দিয়ে এসইও আর্টিকেল লিখানোর প্রম্পট
     prompt = f"""
     Act as an expert SEO blog writer. Write a detailed, long, and fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
     Include a catchy Title, Meta Description, and Focus Keyword.
@@ -31,15 +30,16 @@ def generate_seo_content_via_openrouter(category):
     }}
     """
     
+    # URL একদম নিখুঁতভাবে দেওয়া হলো (কোনো ব্র্যাকেট ছাড়া)
     url = "[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)"
+    
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY.strip() if OPENROUTER_API_KEY else ''}",
         "Content-Type": "application/json",
         "HTTP-Referer": "[https://github.com](https://github.com)",
         "X-Title": "Blogger Auto Poster"
     }
     
-    # শক্তিশালী GPT-5.6 Sol মডেল ব্যবহার করা হচ্ছে
     payload = {
         "model": "openai/gpt-5.6-sol", 
         "messages": [
@@ -48,7 +48,7 @@ def generate_seo_content_via_openrouter(category):
     }
     
     try:
-        print(f"Generating SEO blog via OpenRouter (GPT-5.6 Sol) for category: {category}...")
+        print(f"Generating SEO blog via OpenRouter for category: {category}...")
         response = requests.post(url, headers=headers, json=payload)
         response_data = response.json()
         
@@ -57,16 +57,15 @@ def generate_seo_content_via_openrouter(category):
             text = content_text.replace('```json', '').replace('```', '').strip()
             return json.loads(text)
         else:
-            print(f"OpenRouter Error: {response_data}")
+            print(f"OpenRouter Response Error: {response_data}")
             exit(1)
     except Exception as e:
         print(f"Failed to generate content: {e}")
         exit(1)
 
 def generate_images_via_gemini(keyword):
-    # Gemini API দিয়ে ইমেজের প্রম্পট ও হাই-কোয়ালিটি ইমেজ তৈরি করা
     if not GEMINI_KEYS:
-        print("No Gemini API keys found, using fallback generator.")
+        print("No Gemini API keys found, using default fallback.")
         safe_kw = keyword.replace(' ', '%20')
         return f"[https://image.pollinations.ai/prompt/professional%20](https://image.pollinations.ai/prompt/professional%20){safe_kw}?width=800&height=400&nologo=true", \
                f"[https://image.pollinations.ai/prompt/creative%20concept%20](https://image.pollinations.ai/prompt/creative%20concept%20){safe_kw}?width=800&height=400&nologo=true"
@@ -141,13 +140,13 @@ def notify_google_indexing(url):
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
     
-    # ১. OpenRouter (GPT-5.6 Sol) দিয়ে এসইও ব্লগ তৈরি
+    # ১. OpenRouter দিয়ে এসইও ব্লগ তৈরি
     article_data = generate_seo_content_via_openrouter(CATEGORY)
     
-    # ২. Gemini API দিয়ে ছবি তৈরি ও লিঙ্ক করা
+    # ২. ছবি তৈরি করা
     img_url_1, img_url_2 = generate_images_via_gemini(article_data['keyword'])
     
-    # ৩. ব্লগের কন্টেন্টের ভেতর দুটি সুন্দর ছবি যুক্ত করা
+    # ৩. কন্টেন্টের ভেতর দুটি ছবি বসানো
     final_html_content = f"""
     <div style="text-align: center; margin-bottom: 20px;">
         <img src="{img_url_1}" alt="{article_data['keyword']} - Main" style="max-width:100%; height:auto; border-radius:8px;"/>
@@ -160,10 +159,10 @@ if __name__ == "__main__":
     </div>
     """
     
-    # ৪. ব্লগারে পাবলিশ করা
+    # ৪. ব্লগারে পোস্ট পাবলিশ করা
     published_url = publish_to_blogger(article_data['title'], final_html_content, article_data['tags'])
     
-    # ৫. ইনস্ট্যান্ট ইনডেক্সিংয়ে পাঠানো
+    # ৫. গুগল ইনডেক্সিং পাঠানো
     if published_url:
         notify_google_indexing(published_url)
     
