@@ -17,9 +17,11 @@ def sanitize_secret(val):
     if not val:
         return ""
     val = val.strip()
+    if '[' in val and ']' in val:
+        val = val.split('[')[1].split(']')[0]
     if '(' in val and ')' in val:
-        val = val.split('(')[-1].split(')')[0]
-    return val.replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
+        val = val.split('(')[1].split(')')[0]
+    return val.replace("'", "").replace('"', "").strip()
 
 REFRESH_TOKEN = sanitize_secret(os.environ.get("BLOGGER_REFRESH_TOKEN"))
 CLIENT_ID = sanitize_secret(os.environ.get("BLOGGER_CLIENT_ID"))
@@ -51,7 +53,6 @@ def generate_seo_content(category):
     }}
     """
     
-    # ১. প্রথমে ওপেন রাউটার দিয়ে জেনারেট করার চেষ্টা করবে
     if OPENROUTER_API_KEY:
         try:
             print(f"Trying to generate blog via OpenRouter (Primary)...")
@@ -78,7 +79,6 @@ def generate_seo_content(category):
         except Exception as e:
             print(f"OpenRouter failed: {e}. Switching to Gemini backup...")
 
-    # ২. ওপেন রাউটার ফেল করলে জেমিনি ব্যাকআপ ব্যবহার করবে
     if GEMINI_KEYS:
         try:
             print("Switching to Gemini API for blog generation (Backup)...")
@@ -93,7 +93,6 @@ def generate_seo_content(category):
         except Exception as e:
             print(f"Gemini generation failed: {e}. Using Safe Fallback Article...")
 
-    # ৩. সব এপিআই কোটা শেষ হলে ফলব্যাক বা ডিফল্ট আর্টিকেল ব্যবহার করবে যাতে প্রজেক্ট ফেইল না করে
     print("All AI methods failed. Generating Fallback Content...")
     return {
         "title": f"Complete Guide to Smart {CATEGORY} Management in 2026",
@@ -178,3 +177,4 @@ if __name__ == "__main__":
     published_url = publish_to_blogger(article_data['title'], final_html_content, article_data['tags'])
     if published_url:
         notify_google_indexing(published_url)
+    
