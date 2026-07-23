@@ -18,14 +18,13 @@ CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
 def clean_and_parse_json(text):
     try:
-        # Markdown ব্লক ট্যাগ থাকলে তা পরিষ্কার করা
         text = text.replace('```json', '').replace('```', '').strip()
-        # যদি এক্সট্রা টেক্সট থাকে তবে প্রথম { থেকে শেষ } পর্যন্ত এক্সট্রাক্ট করা
         start = text.find('{')
         end = text.rfind('}')
         if start != -1 and end != -1:
             text = text[start:end+1]
-        return json.loads(text)
+        # strict=False দিয়ে কন্ট্রোল ক্যারেক্টার জনিত এরর এড়িয়ে চলা
+        return json.loads(text, strict=False)
     except Exception as e:
         print(f"JSON Parse Error: {e}")
         raise e
@@ -176,5 +175,5 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
-            
+        
 
