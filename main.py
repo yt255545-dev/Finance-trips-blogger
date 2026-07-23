@@ -45,9 +45,9 @@ def generate_seo_content_via_openrouter(category):
         "X-Title": "Blogger Auto Poster"
     }
     
-    # OpenRouter-এর সবচেয়ে শক্তিশালী ফ্রি মডেল (Nemotron 3 Ultra) ব্যবহার করা হচ্ছে
+    # ওপেন রাউটারের ১০০% ভ্যালিড এবং কার্যকরী ফ্রি মডেল
     payload = {
-        "model": "nvidia/nemotron-3-ultra:free", 
+        "model": "google/gemini-2.5-flash:free", 
         "messages": [
             {"role": "user", "content": prompt}
         ]
@@ -117,7 +117,6 @@ def generate_images_via_gemini(keyword):
         
     except Exception as e:
         print(f"Gemini direct image generation failed: {e}. Falling back to URL generation.")
-        # কোনো কারণে জেমিনির ইমেজ জেনারেশন লিমিট শেষ হলে, ব্যাকআপ হিসেবে এটি কাজ করবে
         safe_kw = keyword.replace(' ', '%20')
         img1 = "https://" + f"image.pollinations.ai/prompt/photorealistic%20{safe_kw}?width=800&height=400&nologo=true"
         img2 = "https://" + f"image.pollinations.ai/prompt/cinematic%20lighting%20{safe_kw}?width=800&height=400&nologo=true"
