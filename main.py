@@ -86,18 +86,20 @@ def generate_seo_content(category):
     exit(1)
 
 def generate_images(keyword):
-    # নিরাপদ এবং দ্রুত ইমেজ লিংকের জন্য পেশাদার পদ্ধতি
     safe_kw = keyword.replace(' ', '%20')
     img1 = f"[https://image.pollinations.ai/prompt/professional%20photorealistic%20](https://image.pollinations.ai/prompt/professional%20photorealistic%20){safe_kw}?width=800&height=400&nologo=true"
     img2 = f"[https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20](https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20){safe_kw}?width=800&height=400&nologo=true"
     return img1, img2
 
 def publish_to_blogger(title, content, tags):
-    token_data = json.loads(TOKEN_JSON)
-    token_uri = token_data.get('token_uri', "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)")
-    if not token_uri or "http" not in token_uri:
-        token_uri = "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
-    token_uri = token_uri.replace('[', '').replace(']', '').strip()
+    try:
+        token_data = json.loads(TOKEN_JSON)
+    except Exception as e:
+        print(f"Error parsing BLOGGER_TOKEN_JSON: {e}")
+        exit(1)
+    
+    # টোকেন ইউআরআই ফিক্স করার সেফটি মেকানিজম
+    token_uri = "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
     
     creds = google.oauth2.credentials.Credentials(
         token=token_data.get('token'),
@@ -163,3 +165,4 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
+
