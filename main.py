@@ -8,7 +8,7 @@ import google.oauth2.credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-# GitHub Secrets থেকে প্রয়োজনীয় তথ্য সংগ্রহ
+# GitHub Secrets থেকে ডেটা সংগ্রহ
 BLOG_ID = os.environ.get("BLOG_ID")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS", "").split(",") if k.strip()]
@@ -30,15 +30,17 @@ def generate_seo_content_via_openrouter(category):
     }}
     """
     
-    # ব্র্যাকেট ছাড়া একদম প্লেইন URL
-    url = "[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)"
+    # URL-এর কপি-পেস্ট সমস্যা সমাধানের জন্য লিংকটিকে ভেঙে যুক্ত করা হলো
+    host = "openrouter.ai"
+    endpoint = "/api/v1/chat/completions"
+    url = "https://" + host + endpoint
     
     api_key = OPENROUTER_API_KEY.strip() if OPENROUTER_API_KEY else ""
     
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "[https://github.com](https://github.com)",
+        "HTTP-Referer": "https://" + "github.com",
         "X-Title": "Blogger Auto Poster"
     }
     
@@ -69,8 +71,9 @@ def generate_images_via_gemini(keyword):
     if not GEMINI_KEYS:
         print("No Gemini API keys found, using default fallback.")
         safe_kw = keyword.replace(' ', '%20')
-        return f"[https://image.pollinations.ai/prompt/professional%20](https://image.pollinations.ai/prompt/professional%20){safe_kw}?width=800&height=400&nologo=true", \
-               f"[https://image.pollinations.ai/prompt/creative%20concept%20](https://image.pollinations.ai/prompt/creative%20concept%20){safe_kw}?width=800&height=400&nologo=true"
+        img1 = "https://" + f"image.pollinations.ai/prompt/professional%20{safe_kw}?width=800&height=400&nologo=true"
+        img2 = "https://" + f"image.pollinations.ai/prompt/creative%20concept%20{safe_kw}?width=800&height=400&nologo=true"
+        return img1, img2
     
     api_key = random.choice(GEMINI_KEYS)
     
@@ -84,18 +87,19 @@ def generate_images_via_gemini(keyword):
         )
         
         safe_kw = keyword.replace(' ', '%20')
-        img1 = f"[https://image.pollinations.ai/prompt/photorealistic%20](https://image.pollinations.ai/prompt/photorealistic%20){safe_kw}?width=800&height=400&nologo=true"
-        img2 = f"[https://image.pollinations.ai/prompt/cinematic%20lighting%20](https://image.pollinations.ai/prompt/cinematic%20lighting%20){safe_kw}?width=800&height=400&nologo=true"
+        img1 = "https://" + f"image.pollinations.ai/prompt/photorealistic%20{safe_kw}?width=800&height=400&nologo=true"
+        img2 = "https://" + f"image.pollinations.ai/prompt/cinematic%20lighting%20{safe_kw}?width=800&height=400&nologo=true"
         return img1, img2
     except Exception as e:
         print(f"Gemini image generation warning: {e}, using default fallback.")
         safe_kw = keyword.replace(' ', '%20')
-        return f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){safe_kw}?width=800&height=400&nologo=true", \
-               f"[https://image.pollinations.ai/prompt/abstract%20](https://image.pollinations.ai/prompt/abstract%20){safe_kw}?width=800&height=400&nologo=true"
+        img1 = "https://" + f"image.pollinations.ai/prompt/{safe_kw}?width=800&height=400&nologo=true"
+        img2 = "https://" + f"image.pollinations.ai/prompt/abstract%20{safe_kw}?width=800&height=400&nologo=true"
+        return img1, img2
 
 def publish_to_blogger(title, content, tags):
     token_data = json.loads(TOKEN_JSON)
-    token_uri = token_data.get('token_uri', '[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)')
+    token_uri = token_data.get('token_uri', "https://" + '[oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)')
     token_uri = token_uri.replace('[', '').replace(']', '').strip()
     
     creds = google.oauth2.credentials.Credentials(
@@ -125,7 +129,7 @@ def notify_google_indexing(url):
     try:
         indexing_credentials = service_account.Credentials.from_service_account_info(
             json.loads(INDEXING_JSON),
-            scopes=['[https://www.googleapis.com/auth/indexing](https://www.googleapis.com/auth/indexing)']
+            scopes=["https://" + '[www.googleapis.com/auth/indexing](https://www.googleapis.com/auth/indexing)']
         )
         service = build('indexing', 'v3', credentials=indexing_credentials)
         
@@ -142,13 +146,10 @@ def notify_google_indexing(url):
 if __name__ == "__main__":
     print(f"Working on category: {CATEGORY}")
     
-    # ১. OpenRouter দিয়ে কন্টেন্ট জেনারেট
     article_data = generate_seo_content_via_openrouter(CATEGORY)
     
-    # ২. Gemini/Fallback দিয়ে ছবি জেনারেট
     img_url_1, img_url_2 = generate_images_via_gemini(article_data['keyword'])
     
-    # ৩. HTML ডিজাইন
     final_html_content = f"""
     <div style="text-align: center; margin-bottom: 20px;">
         <img src="{img_url_1}" alt="{article_data['keyword']} - Main" style="max-width:100%; height:auto; border-radius:8px;"/>
@@ -161,10 +162,8 @@ if __name__ == "__main__":
     </div>
     """
     
-    # ৪. ব্লগারে পাবলিশ
     published_url = publish_to_blogger(article_data['title'], final_html_content, article_data['tags'])
     
-    # ৫. গুগল ইনডেক্সিং
     if published_url:
         notify_google_indexing(published_url)
-        
+    
