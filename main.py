@@ -29,7 +29,8 @@ def generate_seo_content(category):
     }}
     """
     
-    model_name = 'gemini-2.0-flash'
+    # ফ্রি টায়ার কোটা সমস্যা এড়ানোর জন্য стабильный মডেল ব্যবহার করা হলো
+    model_name = 'gemini-1.5-flash'
     
     if not GEMINI_KEYS:
         print("Error: No Gemini API keys found in GitHub Secrets.")
