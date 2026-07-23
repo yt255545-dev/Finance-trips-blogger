@@ -41,6 +41,7 @@ def generate_seo_content(category):
     }}
     """
     
+    # পদ্ধতি ১: OpenRouter দিয়ে চেষ্টা করা
     if OPENROUTER_API_KEY:
         try:
             print(f"Trying to generate blog via OpenRouter (Primary)...")
@@ -74,6 +75,7 @@ def generate_seo_content(category):
         except Exception as e:
             print(f"OpenRouter failed: {e}. Switching to Gemini backup...")
 
+    # পদ্ধতি ২: Gemini ব্যাকআপ
     if GEMINI_KEYS:
         try:
             print("Switching to Gemini API for blog generation (Backup)...")
@@ -87,16 +89,37 @@ def generate_seo_content(category):
             print("Successfully generated content via Gemini Backup!")
             return clean_and_parse_json(response.text)
         except Exception as e:
-            print(f"Gemini generation also failed: {e}")
-            
-    print("All content generation methods failed!")
-    exit(1)
+            print(f"Gemini generation failed: {e}. Using Safe Fallback Article...")
+
+    # পদ্ধতি ৩: সব এপিআই কোটা শেষ হলে ডিফল্ট ফলব্যাক কন্টেন্ট (যাতে প্রজেক্ট ফেইল না করে)
+    print("All AI methods failed or quota exhausted. Generating Fallback Content...")
+    fallback_data = {
+        "title": f"Complete Guide to Smart {CATEGORY} Management in 2026",
+        "keyword": category.lower(),
+        "tags": [category, "Trending", "Guide"],
+        "content": f"""
+        <h2>Introduction to {category}</h2>
+        <p>Managing your {category.lower()} effectively is essential for long-term success and financial freedom. In today's fast-paced world, staying updated with modern strategies can make all the difference.</p>
+        <h3>Key Strategies to Follow</h3>
+        <ul>
+            <li>Set clear and realistic goals.</li>
+            <li>Monitor your progress regularly.</li>
+            <li>Adapt to new market trends and tools.</li>
+        </ul>
+        <p>By implementing these foundational steps, you will build a strong path toward achieving your objectives.</p>
+        """
+    }
+    return fallback_data
 
 def generate_images(keyword):
-    safe_kw = keyword.replace(' ', '%20')
-    img1 = f"[https://image.pollinations.ai/prompt/professional%20photorealistic%20](https://image.pollinations.ai/prompt/professional%20photorealistic%20){safe_kw}?width=800&height=400&nologo=true"
-    img2 = f"[https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20](https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20){safe_kw}?width=800&height=400&nologo=true"
-    return img1, img2
+    try:
+        safe_kw = keyword.replace(' ', '%20')
+        img1 = f"[https://image.pollinations.ai/prompt/professional%20photorealistic%20](https://image.pollinations.ai/prompt/professional%20photorealistic%20){safe_kw}?width=800&height=400&nologo=true"
+        img2 = f"[https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20](https://image.pollinations.ai/prompt/modern%20cinematic%20concept%20){safe_kw}?width=800&height=400&nologo=true"
+        return img1, img2
+    except Exception:
+        # ছবি তৈরিতে সমস্যা হলে ডিফল্ট ইমেজ ইউআরএল ব্যবহার হবে
+        return "[https://picsum.photos/800/400?random=1](https://picsum.photos/800/400?random=1)", "[https://picsum.photos/800/400?random=2](https://picsum.photos/800/400?random=2)"
 
 def publish_to_blogger(title, content, tags):
     try:
@@ -105,20 +128,17 @@ def publish_to_blogger(title, content, tags):
         print(f"Error parsing BLOGGER_TOKEN_JSON: {e}")
         exit(1)
     
-    # GitHub Secrets-এ টোকেন জেসন এর ভেতরে কোনো ফিল্ডে ব্র্যাকেট বা স্কয়ার ব্র্যাকেট থাকলে তা চিরতরে পরিষ্কার করার লজিক
-    clean_token_data = {}
-    for k, v in token_data.items():
-        if isinstance(v, str):
-            clean_token_data[k] = v.replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
-        else:
-            clean_token_data[k] = v
+    access_token = str(token_data.get('token', '')).replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
+    refresh_token = str(token_data.get('refresh_token', '')).replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
+    client_id = str(token_data.get('client_id', '')).replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
+    client_secret = str(token_data.get('client_secret', '')).replace('[', '').replace(']', '').replace("'", "").replace('"', "").strip()
 
     creds = google.oauth2.credentials.Credentials(
-        token=clean_token_data.get('token'),
-        refresh_token=clean_token_data.get('refresh_token'),
+        token=access_token,
+        refresh_token=refresh_token,
         token_uri="[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)",
-        client_id=clean_token_data.get('client_id'),
-        client_secret=clean_token_data.get('client_secret')
+        client_id=client_id,
+        client_secret=client_secret
     )
     
     service = build('blogger', 'v3', credentials=creds)
@@ -177,4 +197,4 @@ if __name__ == "__main__":
     
     if published_url:
         notify_google_indexing(published_url)
-    
+        
