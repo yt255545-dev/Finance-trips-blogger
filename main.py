@@ -1,26 +1,21 @@
 import os
 import random
 import json
+import time
 import requests
 from google import genai
-from google.genai import types
 import google.oauth2.credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 # GitHub Secrets থেকে ডেটা সংগ্রহ
 BLOG_ID = os.environ.get("BLOG_ID")
-GEMINI_KEYS = os.environ.get("GEMINI_KEYS").split(",") 
+GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_KEYS").split(",") if k.strip()]
 TOKEN_JSON = os.environ.get("BLOGGER_TOKEN_JSON") 
 INDEXING_JSON = os.environ.get("INDEXING_JSON")
 CATEGORY = os.environ.get("CATEGORY", "Personal Finance")
 
 def generate_seo_content(category):
-    api_key = random.choice(GEMINI_KEYS).strip()
-    
-    # নতুন জেমিনি ক্লায়েন্ট ইনিশিয়ালাইজেশন
-    client = genai.Client(api_key=api_key)
-    
     prompt = f"""
     Act as an expert SEO blog writer. Write a highly engaging, fully SEO-optimized blog post in English about a trending topic in this category: '{category}'.
     Include a catchy Title, Meta Description, and Focus Keyword.
@@ -34,17 +29,25 @@ def generate_seo_content(category):
     }}
     """
     
-    try:
-        # মডেলের নাম gemini-3.5-flash এ আপডেট করা হলো
-        response = client.models.generate_content(
-            model='gemini-3.5-flash',
-            contents=prompt,
-        )
-        text = response.text.replace('```json', '').replace('```', '').strip()
-        return json.loads(text)
-    except Exception as e:
-        print("Error generating content with Gemini:", e)
-        exit(1)
+    # একাধিক API Key দিয়ে চেষ্টার জন্য লুপ
+    random.shuffle(GEMINI_KEYS)
+    for api_key in GEMINI_KEYS:
+        try:
+            client = genai.Client(api_key=api_key)
+            # স্থিতিশীল মডেল ব্যবহার করা হলো
+            response = client.models.generate_content(
+                model='gemini-3.5-flash',
+                contents=prompt,
+            )
+            text = response.text.replace('```json', '').replace('```', '').strip()
+            return json.loads(text)
+        except Exception as e:
+            print(f"API Key failed or high demand error, trying next key. Error: {e}")
+            time.sleep(2)
+            continue
+            
+    print("All Gemini API keys failed or quota/server busy.")
+    exit(1)
 
 def publish_to_blogger(title, content, tags):
     token_data = json.loads(TOKEN_JSON)
@@ -114,3 +117,4 @@ if __name__ == "__main__":
     # 5. গুগলে ইন্ডেক্সিং এর জন্য পাঠানো
     if published_url:
         notify_google_indexing(published_url)
+    
